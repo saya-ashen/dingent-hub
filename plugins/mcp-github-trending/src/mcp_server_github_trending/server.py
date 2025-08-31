@@ -101,11 +101,21 @@ async def serve() -> None:
                         }
                         formatted_repos.append(formatted_repo)
 
+                    title = "Github Trending Repositories"
+                    criteria = []
+                    if language:
+                        criteria.append(f"Language: {language}")
+                    if spoken_language:
+                        criteria.append(f"Spoken: {spoken_language}")
+                    if since:
+                        criteria.append(f"Since: {since}")
+                    if criteria:
+                        title += f" ({', '.join(criteria)})"
                     columns = list(formatted_repos[0].keys())
                     rows = formatted_repos
-                    payload = {"type":"table","columns":columns, "rows":rows, "title":f"Github trending repositories"}
+                    payload = {"type": "table", "columns": columns, "rows": rows, "title": title}
                     
-                    structured_output = {"context": json.dumps(formatted_repos, indent=2), "tool_outputs": [payload]}
+                    structured_output = {"model_text": json.dumps(formatted_repos, indent=2), "display": [payload]}
                     return [
                         TextContent(type="text", text=json.dumps(structured_output, indent=2))
                     ]
