@@ -1,0 +1,93 @@
+[plugin]
+id = "ding-rag-chroma"
+display_name = "Ding RAG"
+version = "1.0.0"
+spec_version = 2.0
+description = "A plugin that provides retrieval-augmented generation (RAG) capabilities using Chroma vector database."
+
+[plugin.server]
+transport = "stdio"
+command = "uv"
+args = [
+    "run",
+    "main.py",
+    "--verbose"
+]
+
+[[plugin.config_schema]]
+name = "client_type"
+type = "string"
+secret = false
+required = true
+description = "client_type: one of persistent, http, ephemeral"
+
+
+[[plugin.config_schema]]
+name = "client_path"
+type = "string"
+secret = false
+required = false
+description = "client_path"
+
+[[plugin.config_schema]]
+name = "client_host"
+type = "string"
+secret = false
+required = false
+description = "client_host"
+
+[[plugin.config_schema]]
+name = "client_port"
+type = "integer"
+secret = false
+required = false
+description = "client_port"
+
+[[plugin.config_schema]]
+name = "collection_name"
+type = "string"
+secret = false
+required = true
+description = "collection_name"
+
+[[plugin.config_schema]]
+name = "default_n_results"
+type = "integer"
+secret = false
+required = false
+description = "default_n_results"
+
+[[plugin.config_schema]]
+name = "embedding_provider"
+type = "string"
+secret = false
+required = true
+description = "embedding_provider"
+
+[[plugin.config_schema]]
+name = "embedding_api_key"
+type = "string"
+secret = true
+required = false
+description = "embedding_api_key"
+
+[[plugin.config_schema]]
+name = "embedding_model_name"
+type = "string"
+secret = false
+required = true
+description = "embedding_model_name"
+
+[[plugin.config_schema]]
+name = "embedding_api_base"
+type = "string"
+secret = true
+required = false
+description = "embedding_api_base"
+
+[[plugin.config_schema]]
+name = "embedding_extra_kwargs"
+type = "dict"
+secret = false
+required = false
+description = "embedding_extra_kwargs"
