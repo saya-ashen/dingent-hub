@@ -3,7 +3,7 @@ name = "ding-text2sql"
 version = "0.1.0"
 description = "A plugin that converts natural language to SQL queries."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=2.14.2",
     "sqlmodel>=0.0.31",
