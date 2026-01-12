@@ -1,10 +1,8 @@
 from typing import Any, Literal
 import chromadb
 from chromadb.utils import embedding_functions
-from chromadb.config import Settings
 from fastmcp import FastMCP
 from pydantic import BaseModel
-import hashlib
 
 # 定义 Client 类型
 ClientType = Literal["persistent", "http", "ephemeral"]
