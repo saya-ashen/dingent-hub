@@ -1,7 +1,7 @@
 [plugin]
 id = "ding-text2sql"
 display_name = "Ding Text2SQL"
-version = "1.2.0"
+version = "1.3.0"
 spec_version = 2.0
 description = "A plugin that converts natural language to SQL queries."
 

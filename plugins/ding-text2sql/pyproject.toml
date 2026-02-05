@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=2.14.2",
+    "pymysql>=1.1.2",
     "sqlmodel>=0.0.31",
 ]

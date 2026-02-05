@@ -1,10 +1,12 @@
 import hashlib
 import json
-from typing import Dict, List, Optional
+from typing import Any
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.engine import Engine
+from fastmcp.dependencies import CurrentContext, Depends
+
 
 mcp = FastMCP("Dynamic Text2SQL Service")
 
@@ -15,7 +17,7 @@ class ConnectionManager:
     """
 
     def __init__(self):
-        self._engines: Dict[str, Engine] = {}
+        self._engines: dict[str, Engine] = {}
 
     def _get_cache_key(self, config: dict[str, str]) -> str:
         """
@@ -52,13 +54,22 @@ manager = ConnectionManager()
 # --- 展示配置类 ---
 
 
+def get_config(ctx: Context = CurrentContext()) -> dict[str, Any]:
+    meta = ctx.request_context.meta
+    assert meta is not None
+    plugin_config = meta.model_dump()
+    return plugin_config
+
+
 class DisplayConfig:
     """
     定义数据展示配置
     """
 
     @staticmethod
-    def table(columns: Optional[List[str]] = None, title: Optional[str] = None) -> dict:
+    def table(
+        columns: list[str] | None = None, title: str | None = None
+    ) -> dict[str, Any]:
         """
         创建表格展示配置
 
@@ -74,12 +85,9 @@ class DisplayConfig:
         return config
 
 
-from typing import List, Optional, Dict, Any
-
-
 def build_table_display(
-    rows: List[dict], display_config: Optional[dict] = None
-) -> dict:
+    rows: list[dict[str, Any]], display_config: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
     """
     根据配置构建表格展示数据 (适配 accessorKey 前端模式)
 
@@ -133,8 +141,10 @@ def build_table_display(
 # --- MCP 工具定义 ---
 
 
-@mcp.tool(exclude_args=["plugin_config"])
-def list_tables(plugin_config: dict[str, str] = {}) -> str:
+@mcp.tool()
+def list_tables(
+    plugin_config=Depends(get_config),
+):
     """
     在使用 `get_table_schema` 之前，先使用此工具查看有哪些表。
     """
@@ -152,54 +162,113 @@ def list_tables(plugin_config: dict[str, str] = {}) -> str:
         return f"Error listing tables: {str(e)}"
 
 
-@mcp.tool(exclude_args=["plugin_config"])
+from sqlalchemy import inspect
+from sqlalchemy.types import Integer, Numeric, String, Text, Date, DateTime, Boolean
+
+
+@mcp.tool()
 def get_database_schema(
     table_names: list[str] | None = None,
-    plugin_config: dict[str, str] = {},
+    plugin_config=Depends(get_config),
 ) -> str:
     """
-    获取数据库 Schema。
+    获取极致压缩的数据库 Schema，专为 LLM 优化。
+    格式: TableName(col:type*PK, col:type>FK_Target, ...)
     """
     try:
         engine = manager.get_engine(plugin_config)
         inspector = inspect(engine)
         all_tables = inspector.get_table_names()
 
+        # 如果未指定表名，只返回简单的表列表，不加载列
         if not table_names:
-            return f"Found tables: {', '.join(all_tables)}\n\nPlease call this tool again with specific `table_names` to get column details."
+            return f"Available Tables: {', '.join(all_tables)}"
 
-        schema_info = []
+        schema_lines = []
+
+        # 简单的类型映射字典，将复杂的 SQL 类型映射为 Python/TS 基础类型
+        # LLM 只需要知道是 'int' 还是 'str' 就能写 SQL，不需要知道是 VARCHAR(255)
+        type_map = {
+            Integer: "int",
+            Numeric: "float",
+            String: "str",
+            Text: "str",
+            Date: "date",
+            DateTime: "datetime",
+            Boolean: "bool",
+        }
+
         for table in table_names:
             if table not in all_tables:
-                schema_info.append(f"Table '{table}' not found.")
                 continue
 
+            # 1. 获取外键映射
+            try:
+                fks = inspector.get_foreign_keys(table)
+                fk_map = {}
+                for fk in fks:
+                    # 简化外键描述：只保留目标表名.列名
+                    if (
+                        fk.get("constrained_columns")
+                        and fk.get("referred_table")
+                        and fk.get("referred_columns")
+                    ):
+                        src_col = fk["constrained_columns"][0]
+                        target = f"{fk['referred_table']}.{fk['referred_columns'][0]}"
+                        fk_map[src_col] = target
+            except:
+                fk_map = {}
+
+            # 2. 处理列信息
             columns = inspector.get_columns(table)
-            col_desc = []
+            col_strs = []
+
             for col in columns:
-                col_str = f"- {col['name']} ({str(col['type'])})"
+                col_name = col["name"]
+
+                # 智能简化类型名称
+                col_type_cls = type(col["type"])
+                # 默认取类名的小写 (例如 INTEGER -> integer)
+                simple_type = col_type_cls.__name__.lower()
+                # 如果在映射表中，则使用更短的别名
+                for base_type, alias in type_map.items():
+                    if issubclass(col_type_cls, base_type):
+                        simple_type = alias
+                        break
+
+                # 移除 'varchar' 等类型中可能包含的 '()' 防止 WAF 误判
+                simple_type = simple_type.split("(")[0]
+
+                # 组装属性：name:type
+                part = f"{col_name}:{simple_type}"
+
+                # 添加主键标记 (*PK)
                 if col.get("primary_key"):
-                    col_str += " [PK]"
-                if col.get("foreign_keys"):
-                    fk_texts = [
-                        f"FK -> {fk.column.table.name}.{fk.column.name}"
-                        for fk in col["foreign_keys"]
-                    ]
-                    col_str += f" [{', '.join(fk_texts)}]"
-                col_desc.append(col_str)
+                    part += "*PK"
 
-            schema_info.append(f"Table: {table}\n" + "\n".join(col_desc))
+                # 添加外键标记 (>Target)
+                if col_name in fk_map:
+                    part += f">{fk_map[col_name]}"
 
-        return "\n\n".join(schema_info)
+                col_strs.append(part)
 
-    except Exception as e:
-        return f"Error getting schema: {str(e)}"
+            # 3. 组装单行 Schema
+            # 格式: table_name(col1:type, col2:type...)
+            schema_lines.append(f"{table}({', '.join(col_strs)})")
+
+        return "\n".join(schema_lines)
+
+    except Exception:
+        return "Error: Unable to retrieve schema."
 
 
-@mcp.tool(exclude_args=["plugin_config"])
+@mcp.tool()
 def execute_sql(
-    query: str, display: Optional[dict] = None, plugin_config: dict[str, str] = {}
-) -> str | dict:
+    ctx: Context,
+    query: str,
+    display: dict[str, Any] | None = None,
+    plugin_config=Depends(get_config),
+) -> str | dict[str, Any]:
     """
     执行 SQL 查询并返回结果。
 
@@ -216,6 +285,7 @@ def execute_sql(
         其中 display_list 是展示配置列表
     """
     normalized_query = query.strip().lower()
+    meta = ctx.request_context.meta
 
     # 基础安全检查
     forbidden = [
