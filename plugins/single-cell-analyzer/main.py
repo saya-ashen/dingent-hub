@@ -297,4 +297,4 @@ def generate_markdown_report(report_title: str, markdown_body: str) -> dict[str,
 
 
 if __name__ == "__main__":
-    mcp.run("streamable-http", port=8012)
+    mcp.run()

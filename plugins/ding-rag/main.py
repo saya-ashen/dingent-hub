@@ -1,7 +1,8 @@
 from typing import Any, Literal
+from fastmcp.dependencies import CurrentContext, Depends
 import chromadb
 from chromadb.utils import embedding_functions
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
 from pydantic import BaseModel
 
 # 定义 Client 类型
@@ -22,6 +23,13 @@ class PluginConfig(BaseModel):
     embedding_api_base: str | None = None
     embedding_extra_kwargs: dict[str, Any] | None = None
     default_n_results: int = 3
+
+
+def get_config(ctx: Context = CurrentContext()):
+    meta = ctx.request_context.meta
+    assert meta is not None
+    plugin_config = meta
+    return plugin_config
 
 
 mcp = FastMCP("rag", stateless_http=True)
@@ -122,7 +130,7 @@ def get_collection_safe(
 def search_knowledge(
     query: str,
     n_results: int | str | None = 3,
-    plugin_config: PluginConfig | None = None,
+    plugin_config=Depends(get_config),
 ) -> dict[str, Any]:
     """
     从本地知识库中检索相关信息。支持动态配置数据库路径。

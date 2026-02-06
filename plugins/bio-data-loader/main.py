@@ -163,4 +163,4 @@ async def load_demo_dataset(dataset_name: Literal["pbmc3k", "paul15"]) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run("streamable-http", port=8011)
+    mcp.run()
