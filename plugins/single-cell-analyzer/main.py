@@ -215,43 +215,72 @@ def find_marker_genes(file_path: str, groupby: str = "leiden") -> dict[str, Any]
 
 
 @mcp.tool()
-def run_trajectory_analysis(file_path: str) -> dict[str, Any]:
+def run_paga_trajectory(file_path: str) -> dict[str, Any]:
     """
-    运行 PAGA (Partition-based Graph Abstraction) 进行细胞轨迹推断。
-    适用于有发育关系的数据集。缓存图片 ID: 'paga_plot'。
+    运行 PAGA (Partition-based Graph Abstraction) 并生成分化轨迹图。
+    不仅生成拓扑图，还会生成基于 PAGA 初始化的单细胞嵌入图 (FA2布局)，
+    这能最直观地展示细胞分化路径。
     """
+    if not os.path.exists(file_path):
+        return {"model_text": "Error: File not found.", "display": []}
+
     adata = sc.read_h5ad(file_path)
 
-    # 确保已有 Neighbors 和 Leiden 结果
+    # 检查必要条件
     if "leiden" not in adata.obs:
-        return {"model_text": "Error: Run clustering first.", "display": []}
+        return {
+            "model_text": "Error: Clustering (leiden) data missing. Run clustering first.",
+            "display": [],
+        }
 
-    # 运行 PAGA
+    # 1. 运行 PAGA 核心算法
     sc.tl.paga(adata, groups="leiden")
 
-    # 绘图：PAGA 拓扑图 + UMAP 嵌入
-    sc.pl.paga(adata, show=False)
-    # 也可以结合 UMAP 绘制 (sc.tl.draw_graph 比较慢，这里只画拓扑结构)
+    # 2. 关键步骤：利用 PAGA 结果初始化 ForceAtlas2 (draw_graph) 布局
+    # 这让单细胞图看起来像一颗发育树，而不是一团散沙
+    # 注意：如果不安装 fa2 库，Scanpy 会回退到 fr 布局，效果稍差但也能用
+    sc.tl.draw_graph(adata, init_pos="paga", layout="fa")
 
-    img_b64 = save_plot_to_store("paga_plot")
+    # --- 绘图 1: 抽象拓扑图 (PAGA Graph) ---
+    # 展示 Cluster 之间的连接强度
+    sc.pl.paga(adata, threshold=0.03, show=False)
+    paga_b64 = save_plot_to_store("paga_topology_plot")
 
+    # --- 绘图 2: 单细胞轨迹嵌入图 (PAGA-initialized Embedding) ---
+    # 展示每个细胞在树状结构上的位置，并按聚类着色
+    sc.pl.draw_graph(
+        adata,
+        color=["leiden"],
+        legend_loc="on data",
+        title="Differentiation Trajectory",
+        show=False,
+    )
+    trajectory_b64 = save_plot_to_store("trajectory_embedding_plot")
+
+    # 保存结果
     new_path = file_path.replace(".h5ad", "_paga.h5ad")
     adata.write(new_path)
 
     model_msg = (
-        f"PAGA trajectory analysis completed.\n"
-        f"Connectivity graph generated. Connectivity threshold indicates the strength of relation between clusters.\n"
-        f"Cached image ID: 'paga_plot'. Use {{paga_plot}} in report."
-        f" Data saved to: {new_path}."
+        f"PAGA Analysis & Trajectory Embedding completed.\n"
+        f"1. Abstract Topology Graph cached as 'paga_topology_plot'.\n"
+        f"2. Single-cell Trajectory Embedding (FA2) cached as 'trajectory_embedding_plot'.\n"
+        f"Data saved to: {new_path}.\n"
+        f"Observation: Look at the Trajectory Embedding plot to see how cells flow from one cluster to another."
     )
 
     display_content = (
-        f"### 🕸️ 细胞轨迹推断 (PAGA)\n"
-        f"展示了各细胞簇之间的拓扑连接关系（线条越粗表示连通性越强）。\n"
-        f"![PAGA Plot]({img_b64})"
+        f"### 🕸️ 细胞分化轨迹分析\n"
+        f"PAGA 分析已完成。下方展示了两种视角的轨迹：\n\n"
+        f"#### 1. 簇间连通性 (拓扑结构)\n"
+        f"展示了细胞群之间的主要连接路径。\n"
+        f"![PAGA Topology]({paga_b64})\n\n"
+        f"#### 2. 单细胞分化流 (Trajectory Embedding)\n"
+        f"这是基于 PAGA 引导的力导向布局，展示细胞如何从干细胞（通常在图的一端）分化出去。\n"
+        f"![Trajectory Flow]({trajectory_b64})"
     )
 
-    return format_response(model_msg, "Trajectory Analysis", display_content)
+    return format_response(model_msg, "Trajectory Analysis Result", display_content)
 
 
 @mcp.tool()
