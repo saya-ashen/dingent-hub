@@ -1,0 +1,15 @@
+[plugin]
+id = "cellmarker"
+display_name = "cellmarker"
+version = "1.1.0"
+spec_version = 2.0
+description = "A plugin that provides cellmarker database"
+
+[plugin.server]
+transport = "stdio"
+command = "uv"
+args = [
+    "run",
+    "celltype.py",
+    "--verbose"
+]

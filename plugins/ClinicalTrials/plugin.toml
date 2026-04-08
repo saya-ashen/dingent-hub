@@ -1,0 +1,10 @@
+[plugin]
+id = "ClinicalTrials"
+display_name = "ClinicalTrials"
+version = "1.0.0"
+spec_version = 2.0
+description = "Search trials, retrieve study details and results, and match patients to eligible trials."
+
+[plugin.server]
+transport = "http"
+url="https://clinicaltrials.caseyjhand.com/mcp"

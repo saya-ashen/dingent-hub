@@ -1,0 +1,10 @@
+[plugin]
+id = "ENA"
+display_name = "ENA"
+version = "1.0.0"
+spec_version = 2.0
+description = "A Model Context Protocol (MCP) server for searching and accessing RNA sequencing datasets from the European Nucleotide Archive (ENA). Find publicly available bulk RNA-seq and single-cell RNA-seq datasets to validate research hypotheses or reproduce published analyses "
+
+[plugin.server]
+transport = "http"
+url="https://nucleotide-archive-mcp.fastmcp.app/mcp"

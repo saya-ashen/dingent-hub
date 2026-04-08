@@ -1,0 +1,13 @@
+[project]
+name = "cellmarker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.8.0",
+    "fastmcp>=2.3.4",
+    "nest_asyncio",
+    "scanpy",
+    "typer"
+]

@@ -1,0 +1,10 @@
+[plugin]
+id = "Omnipath"
+display_name = "Omnipath"
+version = "1.0.0"
+spec_version = 2.0
+description = "OmniPath is a comprehensive collection of molecular biology interactions, pathways, and annotations. "
+
+[plugin.server]
+transport = "http"
+url="https://explore.omnipathdb.org/api/mcp"

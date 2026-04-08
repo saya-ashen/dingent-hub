@@ -1,0 +1,15 @@
+[plugin]
+id = "uniprot"
+display_name = "uniprot"
+version = "1.1.0"
+spec_version = 2.0
+description = "A plugin that provides uniprot database"
+
+[plugin.server]
+transport = "stdio"
+command = "uv"
+args = [
+    "run",
+    "server.py",
+    "--verbose"
+]
